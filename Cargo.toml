@@ -1,5 +1,5 @@
 [package]
-name = "Gerber-To-SolderMask-STP"
+name = "Gerber-To-SolderMask-DXF"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,4 +7,4 @@ edition = "2021"
 dxf = "0.5.0"
 gerber-types = "0.3.0"
 #gerber_parser = "0.1.2"
-gerber_parser = { path = "../gerber-parser-lib" }
+gerber_parser = { path = "../gerber-parser" }
