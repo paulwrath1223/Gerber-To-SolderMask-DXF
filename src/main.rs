@@ -186,15 +186,21 @@ fn add_interpolation(
             vertex_vec.push(dxf::LwPolylineVertex { 
                 x: point.x,
                 y: point.y,
+                bulge: 0f64,
+                
                 ..Default::default()
             });
         }
+        
+        let mut polyline = dxf::entities::LwPolyline{
+            vertices: vertex_vec,
+            constant_width: 2f64,
+            ..Default::default()
+        };
+        polyline.set_is_closed(true);
         drawing.add_entity(dxf::entities::Entity {
             common: Default::default(),
-            specific: dxf::entities::EntityType::LwPolyline(dxf::entities::LwPolyline{
-                vertices: vertex_vec,
-                ..Default::default()
-            }),
+            specific: dxf::entities::EntityType::LwPolyline(polyline),
         });
     }
 
