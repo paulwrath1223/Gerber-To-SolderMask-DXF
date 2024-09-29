@@ -180,8 +180,24 @@ fn add_interpolation(
                 }
             }
         }
+    } else { // assume no selected aperture means region mode
+        let mut vertex_vec: Vec<dxf::LwPolylineVertex> = Vec::new();
+        for point in coord_list.iter(){
+            vertex_vec.push(dxf::LwPolylineVertex { 
+                x: point.x,
+                y: point.y,
+                ..Default::default()
+            });
+        }
+        drawing.add_entity(dxf::entities::Entity {
+            common: Default::default(),
+            specific: dxf::entities::EntityType::LwPolyline(dxf::entities::LwPolyline{
+                vertices: vertex_vec,
+                ..Default::default()
+            }),
+        });
     }
-    
+
     
     coord_list.clear();
 }
@@ -299,10 +315,39 @@ fn add_circle_interpolation(drawing: &mut dxf::Drawing, coord_list: &mut Vec<Poi
     
     
     for i in 0..len-1{
-        
+        let point_a = &coord_list[i];
+        let point_b = &coord_list[i + 1];
+        let point_c_maybe = coord_list.get(i + 2);
+        let vec = Vector::from_points(point_a, point_b);
+        let cw_vec = vec.get_rotate_cw().with_magnitude(diameter/2.0);
+        let cw_line = dxf::entities::Line::new(cw_vec.apply(point_a), cw_vec.apply(point_b));
+        let ccw_vec = vec.get_rotate_ccw().with_magnitude(diameter/2.0);
+        let ccw_line = dxf::entities::Line::new(ccw_vec.apply(point_a), ccw_vec.apply(point_b));
+        drawing.add_entity(dxf::entities::Entity {
+            common: Default::default(),
+            specific: dxf::entities::EntityType::Line(cw_line),
+        });
+        drawing.add_entity(dxf::entities::Entity {
+            common: Default::default(),
+            specific: dxf::entities::EntityType::Line(ccw_line),
+        });
+        match point_c_maybe{
+            Some(point_c) => {
+                drawing.add_entity(dxf::entities::Entity {
+                    common: Default::default(),
+                    specific: dxf::entities::EntityType::Arc(
+                        interpolation_arc(point_a, point_b, point_c, diameter/2.0)
+                    ),
+                });
+            }
+            None => {}
+        }
     }
+
+
+
     let first_vec = Vector::from_points(
-        &coord_list[0], 
+        &coord_list[0],
         &coord_list[1]
     );
     
@@ -318,6 +363,28 @@ fn add_circle_interpolation(drawing: &mut dxf::Drawing, coord_list: &mut Vec<Poi
                 &radius_vec.get_rotate_cw().apply(first_point),
                 &radius_vec.get_rotate_ccw().apply(first_point),
                 first_point,
+                diameter/2.0
+            )
+        )
+    });
+
+    let last_vec = Vector::from_points(
+        &coord_list[len-1],
+        &coord_list[len-2]
+    );
+
+    let radius_vec = last_vec.with_magnitude(diameter/2.0);
+
+    let last_point = &coord_list[len-1];
+
+
+    drawing.add_entity(dxf::entities::Entity{
+        common: Default::default(),
+        specific: dxf::entities::EntityType::Arc(
+            arc_from_points_and_center(
+                &radius_vec.get_rotate_cw().apply(last_point),
+                &radius_vec.get_rotate_ccw().apply(last_point),
+                last_point,
                 diameter/2.0
             )
         )
