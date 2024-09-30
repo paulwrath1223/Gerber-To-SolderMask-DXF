@@ -138,19 +138,32 @@ fn main() {
                     FunctionCode::GCode(gc) => {
                         add_interpolation(&mut drawing, &gerber_doc, &mut current_path, current_aperture);
                         match gc{
-                            GCode::InterpolationMode(_) => {}
+                            GCode::InterpolationMode(interpolation_mode) => {
+                                // TODO: This doesn't work (there is no code to work)
+                                println!("Interpolation mode was set to {:?}, but reverting to only implemented mode (linear)", interpolation_mode);
+                            }
                             GCode::RegionMode(_is_begin) => {
                                 current_aperture = None
-                                // TODO: Regions?
                             }
-                            GCode::QuadrantMode(_) => {}
-                            GCode::Comment(_) => {}
+                            GCode::QuadrantMode(quadrant_mode) => {
+                                // TODO: This doesn't work (there is no code to work)
+                                println!("I don't even know what quadrant mode means, hopefully it doesn't matter: {:?}", quadrant_mode);
+                            }
+                            GCode::Comment(comment) => {
+                                println!("Found comment: {:?} in Gerber", comment);
+                            }
                         }
                     }
-                    FunctionCode::MCode(_) => {add_interpolation(&mut drawing, &gerber_doc, &mut current_path, current_aperture);}
+                    FunctionCode::MCode(m_code) => {
+                        println!("Found m code in Gerber: {:?} (What is an M code??)", m_code);
+                        add_interpolation(&mut drawing, &gerber_doc, &mut current_path, current_aperture);
+                    }
                 }
             }
-            Command::ExtendedCode(ec) => {add_interpolation(&mut drawing, &gerber_doc, &mut current_path, current_aperture);}
+            Command::ExtendedCode(ec) => {
+                println!("Found extended code in Gerber: {:?} (What is an extended code??)", ec);
+                add_interpolation(&mut drawing, &gerber_doc, &mut current_path, current_aperture);
+            }
         }
     }
 
