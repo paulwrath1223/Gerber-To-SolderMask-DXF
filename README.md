@@ -8,3 +8,6 @@ I tested this on fusion 360 (2024?) and while it can take an exported layer from
 
 ## Basically it works on my machine, email me if you really want to work on this, but I got what I needed out of it
 There are dirty tricks everywhere because Gerber is the worst. Basically G-Code but at home.
+
+## Why did I do it?
+PCBWay (not sponsored) charged me 3 times more for adding a single stencil to my order. This project however only cost me days of work and about 12 beers.
