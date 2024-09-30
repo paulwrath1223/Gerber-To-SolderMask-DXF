@@ -7,4 +7,4 @@ edition = "2021"
 dxf = "0.5.0"
 gerber-types = "0.3.0"
 #gerber_parser = "0.1.2"
-gerber_parser = { path = "../gerber-parser" }
+gerber_parser = { git = "https://github.com/paulwrath1223/gerber-parser.git" }
