@@ -10,7 +10,7 @@ use dxf::entities::{Entity, Insert};
 use dxf::Point;
 
 fn main() {
-    let file = File::open("test_files/solderpaste_top.gbr").expect("failed to open");
+    let file = File::open("test_files/solderpaste_top_with_outline.gbr").expect("failed to open");
     let reader = BufReader::new(file);
     let gerber_doc: GerberDoc = parse_gerber(reader);
     println!("units: {:?}\nname: {:?}", gerber_doc.units, gerber_doc.image_name);
@@ -28,6 +28,7 @@ fn main() {
     let mut current_path: Vec<dxf::Point> = Vec::new();
 
     let mut drawing = dxf::Drawing::new();
+    drawing.header.version = dxf::enums::AcadVersion::Version_2_22;
     drawing.header.default_drawing_units = units;
     
     let mut current_aperture: Option<i32> = None;
@@ -162,8 +163,9 @@ fn add_interpolation(
     coord_list: &mut Vec<Point>,
     aperture_id: Option<i32>
 ) {
+    let list_len = coord_list.len();
     if aperture_id != None{
-        match coord_list.len(){
+        match list_len{
             0usize => {/* Do nothing */}
             1usize => {
                 flash_aperture_at_coords(drawing, aperture_id, &coord_list[0])
@@ -181,27 +183,37 @@ fn add_interpolation(
             }
         }
     } else { // assume no selected aperture means region mode
-        let mut vertex_vec: Vec<dxf::LwPolylineVertex> = Vec::new();
-        for point in coord_list.iter(){
-            vertex_vec.push(dxf::LwPolylineVertex { 
-                x: point.x,
-                y: point.y,
-                bulge: 0f64,
-                
-                ..Default::default()
-            });
+        if list_len > 1{
+            for point_index in 0..list_len-1 {
+                drawing.add_entity(dxf::entities::Entity {
+                    common: Default::default(),
+                    specific: dxf::entities::EntityType::Line(dxf::entities::Line::new(coord_list[point_index].clone(), coord_list[point_index+1].clone())),
+                });
+            }
         }
         
-        let mut polyline = dxf::entities::LwPolyline{
-            vertices: vertex_vec,
-            constant_width: 2f64,
-            ..Default::default()
-        };
-        polyline.set_is_closed(true);
-        drawing.add_entity(dxf::entities::Entity {
-            common: Default::default(),
-            specific: dxf::entities::EntityType::LwPolyline(polyline),
-        });
+        
+        // let mut vertex_vec: Vec<dxf::LwPolylineVertex> = Vec::new();
+        // for point in coord_list.iter(){
+        //     vertex_vec.push(dxf::LwPolylineVertex { 
+        //         x: point.x,
+        //         y: point.y,
+        //         bulge: 0f64,
+        //         
+        //         ..Default::default()
+        //     });
+        // }
+        // 
+        // let mut polyline = dxf::entities::LwPolyline{
+        //     vertices: vertex_vec,
+        //     constant_width: 2f64,
+        //     ..Default::default()
+        // };
+        // polyline.set_is_closed(true);
+        // drawing.add_entity(dxf::entities::Entity {
+        //     common: Default::default(),
+        //     specific: dxf::entities::EntityType::LwPolyline(polyline),
+        // });
     }
 
     
