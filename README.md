@@ -1,3 +1,8 @@
+# oops
+2 days later I find this is a built in feature to fusion 360... Granted it doesn't include the solderpaste layer, but it's worth a shot if youre looking at this project
+![image](https://github.com/user-attachments/assets/7ba4a677-2564-4303-9a44-de494cd9bfb1)
+
+
 # What does it do?
 It takes a gerber file* and returns a dxf file*
 # Why the asterisks?
