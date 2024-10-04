@@ -8,6 +8,7 @@ use gerber_types::{CoordinateOffset, FunctionCode};
 use dxf;
 use dxf::entities::{Entity, Insert};
 use dxf::Point;
+use gerber_parser::error::GerberParserErrorWithContext;
 
 fn main() {
     let file = File::open("test_files/solderpaste_top_with_outline.gbr").expect("failed to open");
@@ -108,61 +109,68 @@ fn main() {
         drawing.add_block(block);
     }
 
-    for command in &gerber_doc.commands{
-        match command{
-            Command::FunctionCode(fc) => {
-                match fc{
-                    FunctionCode::DCode(dc) => {
-                        match dc{
-                            DCode::Operation(operation) => {
-                                match operation {
-                                    Operation::Interpolate(coords, _offset) => {
-                                        add_to_path(&mut current_path, coords);
+    for command_result in &gerber_doc.commands{
+        match command_result{
+            Ok(command) => {
+                match command{
+                    Command::FunctionCode(fc) => {
+                        match fc{
+                            FunctionCode::DCode(dc) => {
+                                match dc{
+                                    DCode::Operation(operation) => {
+                                        match operation {
+                                            Operation::Interpolate(coords, _offset) => {
+                                                add_to_path(&mut current_path, coords);
+                                            }
+                                            Operation::Move(coords) => {
+                                                add_interpolation(&mut drawing, &gerber_doc, &mut current_path, current_aperture);
+                                                add_to_path(&mut current_path, coords);
+                                            }
+                                            Operation::Flash(coords) => {
+                                                add_interpolation(&mut drawing, &gerber_doc, &mut current_path, current_aperture);
+                                                flash_aperture_at_coords(&mut drawing, current_aperture, &coord_to_point(coords).expect("flash at bad coords!"));
+                                            }
+                                        }
                                     }
-                                    Operation::Move(coords) => {
+                                    DCode::SelectAperture(aperture_id) => {
                                         add_interpolation(&mut drawing, &gerber_doc, &mut current_path, current_aperture);
-                                        add_to_path(&mut current_path, coords);
-                                    }
-                                    Operation::Flash(coords) => {
-                                        add_interpolation(&mut drawing, &gerber_doc, &mut current_path, current_aperture);
-                                        flash_aperture_at_coords(&mut drawing, current_aperture, &coord_to_point(coords).expect("flash at bad coords!"));
+                                        current_aperture = Some(*aperture_id);
                                     }
                                 }
                             }
-                            DCode::SelectAperture(aperture_id) => {
+                            FunctionCode::GCode(gc) => {
                                 add_interpolation(&mut drawing, &gerber_doc, &mut current_path, current_aperture);
-                                current_aperture = Some(*aperture_id);
+                                match gc{
+                                    GCode::InterpolationMode(interpolation_mode) => {
+                                        // TODO: This doesn't work (there is no code to work)
+                                        println!("Interpolation mode was set to {:?}, but reverting to only implemented mode (linear)", interpolation_mode);
+                                    }
+                                    GCode::RegionMode(_is_begin) => {
+                                        current_aperture = None
+                                    }
+                                    GCode::QuadrantMode(quadrant_mode) => {
+                                        // TODO: This doesn't work (there is no code to work)
+                                        println!("I don't even know what quadrant mode means, hopefully it doesn't matter: {:?}", quadrant_mode);
+                                    }
+                                    GCode::Comment(comment) => {
+                                        println!("Found comment: {:?} in Gerber", comment);
+                                    }
+                                }
+                            }
+                            FunctionCode::MCode(m_code) => {
+                                println!("{:?}", m_code);
+                                add_interpolation(&mut drawing, &gerber_doc, &mut current_path, current_aperture);
                             }
                         }
                     }
-                    FunctionCode::GCode(gc) => {
-                        add_interpolation(&mut drawing, &gerber_doc, &mut current_path, current_aperture);
-                        match gc{
-                            GCode::InterpolationMode(interpolation_mode) => {
-                                // TODO: This doesn't work (there is no code to work)
-                                println!("Interpolation mode was set to {:?}, but reverting to only implemented mode (linear)", interpolation_mode);
-                            }
-                            GCode::RegionMode(_is_begin) => {
-                                current_aperture = None
-                            }
-                            GCode::QuadrantMode(quadrant_mode) => {
-                                // TODO: This doesn't work (there is no code to work)
-                                println!("I don't even know what quadrant mode means, hopefully it doesn't matter: {:?}", quadrant_mode);
-                            }
-                            GCode::Comment(comment) => {
-                                println!("Found comment: {:?} in Gerber", comment);
-                            }
-                        }
-                    }
-                    FunctionCode::MCode(m_code) => {
-                        println!("Found m code in Gerber: {:?} (What is an M code??)", m_code);
+                    Command::ExtendedCode(ec) => {
+                        // println!("Found extended code in Gerber: {:?} (What is an extended code??)", ec);
                         add_interpolation(&mut drawing, &gerber_doc, &mut current_path, current_aperture);
                     }
                 }
             }
-            Command::ExtendedCode(ec) => {
-                println!("Found extended code in Gerber: {:?} (What is an extended code??)", ec);
-                add_interpolation(&mut drawing, &gerber_doc, &mut current_path, current_aperture);
+            Err(e) => {
+                println!("{}", e);
             }
         }
     }
