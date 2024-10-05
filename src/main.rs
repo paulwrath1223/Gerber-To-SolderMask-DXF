@@ -11,7 +11,7 @@ use dxf::Point;
 use gerber_parser::error::GerberParserErrorWithContext;
 
 fn main() {
-    let file = File::open("test_files/solderpaste_top_with_outline.gbr").expect("failed to open");
+    let file = File::open("test_files/top_stencil_and_cutouts.gbr").expect("failed to open");
     let reader = BufReader::new(file);
     let gerber_doc: GerberDoc = parse_gerber(reader);
     println!("units: {:?}\nname: {:?}", gerber_doc.units, gerber_doc.image_name);
@@ -29,7 +29,12 @@ fn main() {
     let mut current_path: Vec<dxf::Point> = Vec::new();
 
     let mut drawing = dxf::Drawing::new();
-    drawing.header.version = dxf::enums::AcadVersion::Version_2_22;
+    drawing.header.version = dxf::enums::AcadVersion::R14;
+    // F360 export:
+    // $ACADVER
+    // 1
+    // AC1014
+    // 9
     drawing.header.default_drawing_units = units;
     
     let mut current_aperture: Option<i32> = None;
@@ -123,30 +128,31 @@ fn main() {
                                                 add_to_path(&mut current_path, coords);
                                             }
                                             Operation::Move(coords) => {
-                                                add_interpolation(&mut drawing, &gerber_doc, &mut current_path, current_aperture);
+                                                add_interpolation(&mut drawing, &gerber_doc, &mut current_path, current_aperture, region_mode);
                                                 add_to_path(&mut current_path, coords);
                                             }
                                             Operation::Flash(coords) => {
-                                                add_interpolation(&mut drawing, &gerber_doc, &mut current_path, current_aperture);
+                                                add_interpolation(&mut drawing, &gerber_doc, &mut current_path, current_aperture, region_mode);
                                                 flash_aperture_at_coords(&mut drawing, current_aperture, &coord_to_point(coords).expect("flash at bad coords!"));
                                             }
                                         }
                                     }
                                     DCode::SelectAperture(aperture_id) => {
-                                        add_interpolation(&mut drawing, &gerber_doc, &mut current_path, current_aperture);
+                                        println!("select aperture {:?}", aperture_id);
+                                        add_interpolation(&mut drawing, &gerber_doc, &mut current_path, current_aperture, region_mode);
                                         current_aperture = Some(*aperture_id);
                                     }
                                 }
                             }
                             FunctionCode::GCode(gc) => {
-                                add_interpolation(&mut drawing, &gerber_doc, &mut current_path, current_aperture);
+                                add_interpolation(&mut drawing, &gerber_doc, &mut current_path, current_aperture, region_mode);
                                 match gc{
                                     GCode::InterpolationMode(interpolation_mode) => {
                                         // TODO: This doesn't work (there is no code to work)
                                         println!("Interpolation mode was set to {:?}, but reverting to only implemented mode (linear)", interpolation_mode);
                                     }
-                                    GCode::RegionMode(_is_begin) => {
-                                        current_aperture = None
+                                    GCode::RegionMode(is_begin) => {
+                                        region_mode = *is_begin
                                     }
                                     GCode::QuadrantMode(quadrant_mode) => {
                                         // TODO: This doesn't work (there is no code to work)
@@ -159,13 +165,13 @@ fn main() {
                             }
                             FunctionCode::MCode(m_code) => {
                                 println!("{:?}", m_code);
-                                add_interpolation(&mut drawing, &gerber_doc, &mut current_path, current_aperture);
+                                add_interpolation(&mut drawing, &gerber_doc, &mut current_path, current_aperture, region_mode);
                             }
                         }
                     }
                     Command::ExtendedCode(ec) => {
                         // println!("Found extended code in Gerber: {:?} (What is an extended code??)", ec);
-                        add_interpolation(&mut drawing, &gerber_doc, &mut current_path, current_aperture);
+                        add_interpolation(&mut drawing, &gerber_doc, &mut current_path, current_aperture, region_mode);
                     }
                 }
             }
@@ -182,10 +188,11 @@ fn add_interpolation(
     drawing: &mut dxf::Drawing,
     gerber_doc: &GerberDoc,
     coord_list: &mut Vec<Point>,
-    aperture_id: Option<i32>
+    aperture_id: Option<i32>,
+    region_mode: bool
 ) {
     let list_len = coord_list.len();
-    if aperture_id != None{
+    if !region_mode {
         match list_len{
             0usize => {/* Do nothing */}
             1usize => {
@@ -203,7 +210,7 @@ fn add_interpolation(
                 }
             }
         }
-    } else { // assume no selected aperture means region mode
+    } else { // for region mode:
         if list_len > 1{
             for point_index in 0..list_len-1 {
                 drawing.add_entity(dxf::entities::Entity {
